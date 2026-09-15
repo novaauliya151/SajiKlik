@@ -1,0 +1,6 @@
+node_modules
+dist
+.test-dist
+.seed-dist
+package-lock.json
+*.sql

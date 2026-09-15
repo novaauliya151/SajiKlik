@@ -1,0 +1,166 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url = env("DATABASE_URL")
+}
+enum Role {
+  PEMBELI
+  KASIR
+  CHEF
+  FINANCE
+  ADMIN
+  SUPERADMIN
+}
+enum OrderStatus {
+  RECEIVED
+  PROCESSING
+  READY
+  COMPLETED
+  CANCELLED
+}
+enum PaymentMethod {
+  CASH
+  QRIS
+  TRANSFER
+}
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+}
+model User {
+  id String @id @default(uuid())
+  name String
+  email String @unique
+  phone String? @unique
+  passwordHash String
+  role Role @default(PEMBELI)
+  isActive Boolean @default(true)
+  mustChangePassword Boolean @default(false)
+  tokenVersion Int @default(0)
+  createdAt DateTime @default(now())
+  customer Customer?
+  cashierOrders Order[] @relation("CashierOrders")
+  salaries Salary[]
+  entries FinanceEntry[]
+  logs ActivityLog[]
+  sessions RefreshSession[]
+}
+model Customer {
+  id String @id @default(uuid())
+  userId String @unique
+  user User @relation(fields:[userId], references:[id])
+  loyaltyPoints Int @default(0)
+  orders Order[]
+}
+model RefreshSession {
+  id String @id @default(uuid())
+  tokenHash String @unique
+  userId String
+  user User @relation(fields:[userId], references:[id], onDelete:Cascade)
+  expiresAt DateTime
+}
+model Category {
+  id String @id @default(uuid())
+  name String @unique
+  menus Menu[]
+}
+model Menu {
+  id String @id @default(uuid())
+  name String
+  description String
+  price Int
+  categoryId String
+  category Category @relation(fields:[categoryId], references:[id])
+  imageUrl String?
+  stock Int @default(0)
+  isAvailable Boolean @default(true)
+  isArchived Boolean @default(false)
+  items OrderItem[]
+  createdAt DateTime @default(now())
+}
+model Order {
+  id String @id @default(uuid())
+  number Int @unique @default(autoincrement())
+  trackingHash String
+  customerId String?
+  customer Customer? @relation(fields:[customerId], references:[id])
+  cashierId String?
+  cashier User? @relation("CashierOrders", fields:[cashierId], references:[id])
+  customerName String
+  tableNumber String?
+  orderType String
+  status OrderStatus @default(RECEIVED)
+  totalPrice Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  items OrderItem[]
+  payment Payment?
+  @@index([status, createdAt])
+  @@index([customerId, createdAt])
+}
+model OrderItem {
+  id String @id @default(uuid())
+  orderId String
+  order Order @relation(fields:[orderId], references:[id])
+  menuId String
+  menu Menu @relation(fields:[menuId], references:[id])
+  name String
+  price Int
+  qty Int
+  note String?
+  subtotal Int
+}
+model Payment {
+  id String @id @default(uuid())
+  orderId String @unique
+  order Order @relation(fields:[orderId], references:[id])
+  method PaymentMethod
+  status PaymentStatus @default(PENDING)
+  amount Int
+  paidAt DateTime?
+}
+model Salary {
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields:[userId], references:[id])
+  amount Int
+  period String
+  status String @default("PENDING")
+  paidAt DateTime?
+  @@unique([userId, period])
+}
+model FinanceEntry {
+  id String @id @default(uuid())
+  type String
+  amount Int
+  description String
+  date DateTime @default(now())
+  createdBy String
+  user User @relation(fields:[createdBy], references:[id])
+}
+model SiteSetting {
+  id String @id @default("main")
+  primaryColor String @default("#216449")
+  secondaryColor String @default("#f3b64c")
+  logoUrl String?
+  faviconUrl String?
+  iconUrl String?
+  storeName String @default("SajiKlik")
+  address String @default("Jl. Rasa Nusantara No. 12, Jakarta")
+  contact String @default("0812-3456-7890")
+  openingHours String @default("Setiap hari, 10.00–22.00")
+  bankInfo String @default("")
+  qrisUrl String?
+}
+model ActivityLog {
+  id String @id @default(uuid())
+  userId String
+  user User @relation(fields:[userId], references:[id])
+  action String
+  description String
+  createdAt DateTime @default(now())
+  @@index([createdAt])
+}
